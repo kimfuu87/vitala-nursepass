@@ -80,6 +80,56 @@ export async function deleteStaff(formData: FormData) {
   redirect("/?saved=deleted");
 }
 
+export async function addCpdRecord(formData: FormData) {
+  const staffId = required(formData, "staff_profile_id");
+  const supabase = await createClient();
+  let certificateUrl: string | null = null;
+  let certificateFileName: string | null = null;
+  const file = formData.get("file");
+  if (file instanceof File && file.size) {
+    if (file.size > 10 * 1024 * 1024) throw new Error("File too large");
+    certificateFileName = file.name;
+    certificateUrl = `${staffId}/cpd/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error } = await supabase.storage.from("credential-documents").upload(certificateUrl, file);
+    if (error) throw new Error(error.message);
+  }
+  const { error } = await supabase.from("cpd_records").insert({
+    staff_profile_id: staffId,
+    course_name: required(formData, "course_name"),
+    provider: required(formData, "provider"),
+    completion_date: required(formData, "completion_date"),
+    cpd_points: Number(required(formData, "cpd_points")),
+    certificate_url: certificateUrl,
+    certificate_file_name: certificateFileName,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/staff/${staffId}`);
+  redirect(`/staff/${staffId}?saved=cpd`);
+}
+
+export async function deleteCpdRecord(formData: FormData) {
+  const staffId = required(formData, "staff_profile_id");
+  const id = required(formData, "cpd_id");
+  const supabase = await createClient();
+  const { error } = await supabase.from("cpd_records").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/staff/${staffId}`);
+  redirect(`/staff/${staffId}?saved=cpd-deleted`);
+}
+
+export async function deleteCredential(formData: FormData) {
+  const staffId = required(formData, "staff_profile_id");
+  const id = required(formData, "credential_id");
+  const path = required(formData, "file_url");
+  const supabase = await createClient();
+  const { error } = await supabase.from("credential_documents").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  await supabase.storage.from("credential-documents").remove([path]);
+  revalidatePath("/");
+  revalidatePath(`/staff/${staffId}`);
+  redirect(`/staff/${staffId}?saved=credential-deleted`);
+}
+
 export async function signedDocumentUrl(path: string) {
   const supabase = await createClient();
   const { data, error } = await supabase.storage.from("credential-documents").createSignedUrl(path, 300);
