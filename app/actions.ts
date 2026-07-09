@@ -9,9 +9,15 @@ function required(formData: FormData, name: string) {
   if (!value) throw new Error(`${name.replaceAll("_", " ")} is required`);
   return value;
 }
+async function requireUser() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login?error=Please sign in to make changes.");
+  return { supabase, user };
+}
 
 export async function addStaff(formData: FormData) {
-  const supabase = await createClient();
+  const { supabase, user } = await requireUser();
   const payload = {
     full_name: required(formData, "full_name"),
     ic_number: required(formData, "ic_number"),
@@ -19,6 +25,7 @@ export async function addStaff(formData: FormData) {
     role: required(formData, "role"),
     department: required(formData, "department"),
     employment_status: "Active",
+    user_id: user.id,
   };
   const { data, error } = await supabase.from("staff_profiles").insert(payload).select("id").single();
   if (error) throw new Error(error.message);
@@ -33,7 +40,7 @@ export async function uploadCredential(formData: FormData) {
   if (!(file instanceof File) || !file.size) throw new Error("A file is required");
   if (file.size > 10 * 1024 * 1024) throw new Error("File too large");
 
-  const supabase = await createClient();
+  const { supabase, user } = await requireUser();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const path = `${staffId}/${crypto.randomUUID()}-${safeName}`;
   const { error: storageError } = await supabase.storage
@@ -49,6 +56,7 @@ export async function uploadCredential(formData: FormData) {
     issue_date: String(formData.get("issue_date") ?? "") || null,
     expiry_date: String(formData.get("expiry_date") ?? "") || null,
     verification_status: "Unverified",
+    user_id: user.id,
   });
   if (error) {
     await supabase.storage.from("credential-documents").remove([path]);
@@ -63,7 +71,7 @@ export async function updateExpiry(formData: FormData) {
   const staffId = required(formData, "staff_profile_id");
   const id = required(formData, "credential_id");
   const expiryDate = String(formData.get("expiry_date") ?? "") || null;
-  const supabase = await createClient();
+  const { supabase } = await requireUser();
   const { error } = await supabase.from("credential_documents").update({ expiry_date: expiryDate }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/");
@@ -73,7 +81,7 @@ export async function updateExpiry(formData: FormData) {
 
 export async function deleteStaff(formData: FormData) {
   const id = required(formData, "staff_profile_id");
-  const supabase = await createClient();
+  const { supabase } = await requireUser();
   const { error } = await supabase.from("staff_profiles").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/");
@@ -82,7 +90,7 @@ export async function deleteStaff(formData: FormData) {
 
 export async function addCpdRecord(formData: FormData) {
   const staffId = required(formData, "staff_profile_id");
-  const supabase = await createClient();
+  const { supabase, user } = await requireUser();
   let certificateUrl: string | null = null;
   let certificateFileName: string | null = null;
   const file = formData.get("file");
@@ -101,6 +109,7 @@ export async function addCpdRecord(formData: FormData) {
     cpd_points: Number(required(formData, "cpd_points")),
     certificate_url: certificateUrl,
     certificate_file_name: certificateFileName,
+    user_id: user.id,
   });
   if (error) throw new Error(error.message);
   revalidatePath(`/staff/${staffId}`);
@@ -110,7 +119,7 @@ export async function addCpdRecord(formData: FormData) {
 export async function deleteCpdRecord(formData: FormData) {
   const staffId = required(formData, "staff_profile_id");
   const id = required(formData, "cpd_id");
-  const supabase = await createClient();
+  const { supabase } = await requireUser();
   const { error } = await supabase.from("cpd_records").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(`/staff/${staffId}`);
@@ -121,7 +130,7 @@ export async function deleteCredential(formData: FormData) {
   const staffId = required(formData, "staff_profile_id");
   const id = required(formData, "credential_id");
   const path = required(formData, "file_url");
-  const supabase = await createClient();
+  const { supabase } = await requireUser();
   const { error } = await supabase.from("credential_documents").delete().eq("id", id);
   if (error) throw new Error(error.message);
   await supabase.storage.from("credential-documents").remove([path]);

@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { credentialStatus, statusClass, type CredentialStatus } from "@/lib/credentials";
+import { signOut } from "@/app/auth/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ department?: string; saved?: string }> }) {
   const params = await searchParams;
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const [{ data: staff, error }, { data: types }, { data: docs }] = await Promise.all([
     supabase.from("staff_profiles").select("*").order("full_name"),
     supabase.from("document_types").select("*").eq("is_required", true).order("sort_order"),
@@ -27,7 +29,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   }).sort((a, b) => a.score - b.score);
 
   return <main className="shell">
-    <header className="topbar"><div><p className="eyebrow">Credential command centre</p><h1>Vitala NursePass</h1><p>See who needs attention before an audit becomes a crisis.</p></div><Link className="button primary" href="/staff/new">+ Add staff</Link></header>
+    <header className="topbar"><div><p className="eyebrow">Credential command centre</p><h1>Vitala NursePass</h1><p>See who needs attention before an audit becomes a crisis.</p></div><div className="inline-form">{user ? <><span>{user.email}</span><form action={signOut}><button className="button">Sign out</button></form><Link className="button primary" href="/staff/new">+ Add staff</Link></> : <Link className="button primary" href="/login">Sign in to manage</Link>}</div></header>
     {params.saved && <div className="success-banner">Changes saved successfully.</div>}
     <section className="metrics"><article><span>Active staff</span><strong>{staff?.length ?? 0}</strong></article><article><span>Expiring soon</span><strong>{rows.filter((row) => row.priority === "Expiring Soon").length}</strong></article><article><span>Needs attention</span><strong>{rows.filter((row) => ["Expired", "Missing"].includes(row.priority)).length}</strong></article></section>
     <section className="panel"><div className="panel-head"><div><h2>Staff compliance</h2><p>Lowest compliance appears first.</p></div><form><select name="department" defaultValue={params.department ?? ""} aria-label="Filter by department"><option value="">All departments</option>{departments.map((department) => <option key={department}>{department}</option>)}</select><button className="button" type="submit">Filter</button></form></div>
