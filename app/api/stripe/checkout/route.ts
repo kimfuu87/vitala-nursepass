@@ -30,6 +30,10 @@ export async function POST(request: Request) {
     if (!priceId) {
       return NextResponse.json({ error: "priceId is required" }, { status: 400 });
     }
+    const allowedPrices = [process.env.NEXT_PUBLIC_STRIPE_PRICE_PERSONAL, process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM].filter(Boolean);
+    if (!allowedPrices.includes(priceId)) {
+      return NextResponse.json({ error: "Unknown plan" }, { status: 400 });
+    }
 
     const origin = request.headers.get("origin") ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
 

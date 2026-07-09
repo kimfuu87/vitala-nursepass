@@ -1,0 +1,3 @@
+"use client";
+import{useState}from"react";
+export function CheckoutButton({priceId,label}:{priceId?:string;label:string}){const[busy,setBusy]=useState(false);async function go(){if(!priceId){window.location.href="/login";return}setBusy(true);const r=await fetch("/api/stripe/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({priceId})});if(r.status===401){window.location.href="/login";return}const data=await r.json();if(data.url)window.location.href=data.url;else{alert(data.error??"Checkout is not configured yet.");setBusy(false)}}return <button className="button primary large" onClick={go} disabled={busy}>{busy?"Opening checkout…":label}</button>}

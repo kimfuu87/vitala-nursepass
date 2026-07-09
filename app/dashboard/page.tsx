@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { credentialStatus, statusClass, type CredentialStatus } from "@/lib/credentials";
 import { signOut } from "@/app/auth/actions";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   const params = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  if (!profile?.workspace_type) redirect("/onboarding");
   const [{ data: staff, error }, { data: types }, { data: docs }] = await Promise.all([
     supabase.from("staff_profiles").select("*").order("full_name"),
     supabase.from("document_types").select("*").eq("is_required", true).order("sort_order"),
@@ -29,8 +33,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   }).sort((a, b) => a.score - b.score);
 
   return <main className="shell">
-    <header className="workspace-head"><div><p className="eyebrow">Credential command centre</p><h1>Good day{user?.email ? `, ${user.email.split("@")[0]}` : ""}</h1><p>Here is what needs your attention across the nursing team.</p></div><Link className="button primary" href="/staff/new">+ Add staff</Link></header>
+    <header className="workspace-head"><div><p className="eyebrow">{profile.workspace_type==="personal"?"My credential wallet":"Team credential command centre"}</p><h1>Good day, {profile.display_name??user.email?.split("@")[0]}</h1><p>{profile.workspace_type==="personal"?"Keep your professional records current and ready.":"Here is what needs attention across your nursing team."}</p></div>{profile.workspace_type==="team"&&<Link className="button primary" href="/staff/new">+ Add staff</Link>}</header>
     {params.saved && <div className="success-banner">Changes saved successfully.</div>}
+    <div className="plan-banner"><div><span>{profile.plan==="trial"?"Free trial":profile.plan.replace("_"," ")}</span><strong>{profile.plan==="trial"?`${Math.max(0,Math.ceil((new Date(profile.trial_ends_at).getTime()-Date.now())/86400000))} days remaining`:"Active plan"}</strong></div><Link className="button" href="/pricing">View plans</Link></div>
     <nav className="workspace-nav"><Link className="active" href="/dashboard">Overview</Link><Link href="/competencies">Competency</Link><Link href="/verify">Document review</Link><Link href="/reminders">Reminders</Link><Link href="/audit">Audit trail</Link><a href="/api/reports">Export CSV</a><form action={signOut}><button>Sign out</button></form></nav>
     <section className="metrics"><article><span>Active staff</span><strong>{staff?.length ?? 0}</strong></article><article><span>Expiring soon</span><strong>{rows.filter((row) => row.priority === "Expiring Soon").length}</strong></article><article><span>Needs attention</span><strong>{rows.filter((row) => ["Expired", "Missing"].includes(row.priority)).length}</strong></article></section>
     <section className="panel"><div className="panel-head"><div><h2>Staff compliance</h2><p>Lowest compliance appears first.</p></div><form><select name="department" defaultValue={params.department ?? ""} aria-label="Filter by department"><option value="">All departments</option>{departments.map((department) => <option key={department}>{department}</option>)}</select><button className="button" type="submit">Filter</button></form></div>

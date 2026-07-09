@@ -1,5 +1,5 @@
 import { constructWebhookEvent } from "@/lib/stripe";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   try {
     switch (event.type) {
@@ -80,6 +80,8 @@ export async function POST(request: Request) {
           cancel_at_period_end: sub.cancel_at_period_end,
           updated_at: new Date().toISOString(),
         });
+        const plan = sub.items.data[0]?.price.id === process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM ? "team" : "personal_pro";
+        await supabase.from("profiles").update({ plan, updated_at:new Date().toISOString() }).eq("id",userId);
         break;
       }
 
@@ -90,6 +92,7 @@ export async function POST(request: Request) {
           .from("subscriptions")
           .update({ status: "canceled", updated_at: new Date().toISOString() })
           .eq("id", sub.id);
+        await supabase.from("profiles").update({ plan:"trial", updated_at:new Date().toISOString() }).eq("stripe_customer_id",sub.customer as string);
         break;
       }
 

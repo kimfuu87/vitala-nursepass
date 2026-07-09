@@ -64,9 +64,7 @@ export async function createCheckoutSession({
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: { userId },
-    ...(customerId
-      ? { customer: customerId }
-      : { customer_creation: "always" }),
+    ...(customerId ? { customer: customerId } : {}),
 
     // Subscription platform fee
     ...(mode === "subscription" && PLATFORM_FEE_PERCENT > 0

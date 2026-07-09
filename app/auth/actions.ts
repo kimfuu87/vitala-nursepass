@@ -6,6 +6,9 @@ export async function signIn(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email:String(formData.get("email")), password:String(formData.get("password")) });
   if (error) redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: profile } = await supabase.from("profiles").select("workspace_type").eq("id", user!.id).single();
+  if (!profile?.workspace_type) redirect("/onboarding");
   redirect("/dashboard");
 }
 export async function signUp(formData: FormData) {
