@@ -145,3 +145,29 @@ export async function signedDocumentUrl(path: string) {
   if (error) throw new Error(error.message);
   return data.signedUrl;
 }
+
+export async function verifyCredential(formData: FormData) {
+  const staffId = required(formData, "staff_profile_id");
+  const id = required(formData, "credential_id");
+  const status = required(formData, "verification_status");
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("credential_documents").update({
+    verification_status: status, verified_by: user.email, verified_at: new Date().toISOString(),
+  }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/staff/${staffId}`);
+  redirect(`/staff/${staffId}?saved=verified`);
+}
+
+export async function assessCompetency(formData: FormData) {
+  const { supabase, user } = await requireUser();
+  const staffId = required(formData, "staff_profile_id");
+  const itemId = required(formData, "competency_item_id");
+  const payload = { user_id:user.id, staff_profile_id:staffId, competency_item_id:itemId,
+    status:required(formData,"status"), assessed_by:user.email, assessed_at:new Date().toISOString().slice(0,10) };
+  const { data } = await supabase.from("competency_records").select("id").eq("staff_profile_id",staffId).eq("competency_item_id",itemId).maybeSingle();
+  const result = data ? await supabase.from("competency_records").update(payload).eq("id",data.id) : await supabase.from("competency_records").insert(payload);
+  if (result.error) throw new Error(result.error.message);
+  revalidatePath("/competencies");
+  redirect("/competencies?saved=1");
+}
