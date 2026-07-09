@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { credentialStatus, statusClass, type CredentialStatus } from "@/lib/credentials";
 import { signOut } from "@/app/auth/actions";
-export { default } from "./landing";
+export { default } from "./public-home";
 
 export const dynamic = "force-dynamic";
 
