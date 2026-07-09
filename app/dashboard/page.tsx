@@ -2,11 +2,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { credentialStatus, statusClass, type CredentialStatus } from "@/lib/credentials";
 import { signOut } from "@/app/auth/actions";
-export { default } from "./landing";
 
 export const dynamic = "force-dynamic";
 
-async function LegacyHome({ searchParams }: { searchParams: Promise<{ department?: string; saved?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ department?: string; saved?: string }> }) {
   const params = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -30,9 +29,9 @@ async function LegacyHome({ searchParams }: { searchParams: Promise<{ department
   }).sort((a, b) => a.score - b.score);
 
   return <main className="shell">
-    <header className="topbar"><div><p className="eyebrow">Credential command centre</p><h1>Vitala NursePass</h1><p>See who needs attention before an audit becomes a crisis.</p></div><div className="inline-form">{user ? <><Link className="button" href="/competencies">Competency</Link><Link className="button" href="/verify">Review</Link><Link className="button" href="/audit">Audit</Link><a className="button" href="/api/reports">Export CSV</a><form action={signOut}><button className="button">Sign out</button></form><Link className="button primary" href="/staff/new">+ Add staff</Link></> : <Link className="button primary" href="/login">Sign in to manage</Link>}</div></header>
+    <header className="workspace-head"><div><p className="eyebrow">Credential command centre</p><h1>Good day{user?.email ? `, ${user.email.split("@")[0]}` : ""}</h1><p>Here is what needs your attention across the nursing team.</p></div><Link className="button primary" href="/staff/new">+ Add staff</Link></header>
     {params.saved && <div className="success-banner">Changes saved successfully.</div>}
-    {user && <div className="actions"><Link className="button" href="/reminders">Review reminder drafts</Link></div>}
+    <nav className="workspace-nav"><Link className="active" href="/dashboard">Overview</Link><Link href="/competencies">Competency</Link><Link href="/verify">Document review</Link><Link href="/reminders">Reminders</Link><Link href="/audit">Audit trail</Link><a href="/api/reports">Export CSV</a><form action={signOut}><button>Sign out</button></form></nav>
     <section className="metrics"><article><span>Active staff</span><strong>{staff?.length ?? 0}</strong></article><article><span>Expiring soon</span><strong>{rows.filter((row) => row.priority === "Expiring Soon").length}</strong></article><article><span>Needs attention</span><strong>{rows.filter((row) => ["Expired", "Missing"].includes(row.priority)).length}</strong></article></section>
     <section className="panel"><div className="panel-head"><div><h2>Staff compliance</h2><p>Lowest compliance appears first.</p></div><form><select name="department" defaultValue={params.department ?? ""} aria-label="Filter by department"><option value="">All departments</option>{departments.map((department) => <option key={department}>{department}</option>)}</select><button className="button" type="submit">Filter</button></form></div>
       {rows.length === 0 ? <div className="empty">No staff in this department.</div> : <div className="staff-grid">{rows.map((person) => <Link className="staff-card" href={`/staff/${person.id}`} key={person.id}><div className="avatar">{person.full_name.split(" ").slice(0,2).map((word: string) => word[0]).join("")}</div><div className="staff-main"><h3>{person.full_name}</h3><p>{person.role} · {person.department}</p><div className="progress"><i style={{width: `${person.score}%`}} /></div></div><div className="staff-score"><strong>{person.score}%</strong><span className={statusClass[person.priority as CredentialStatus]}>{person.priority}</span></div></Link>)}</div>}

@@ -29,7 +29,7 @@ export async function addStaff(formData: FormData) {
   };
   const { data, error } = await supabase.from("staff_profiles").insert(payload).select("id").single();
   if (error) throw new Error(error.message);
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   redirect(`/staff/${data.id}?saved=staff`);
 }
 
@@ -62,7 +62,7 @@ export async function uploadCredential(formData: FormData) {
     await supabase.storage.from("credential-documents").remove([path]);
     throw new Error(error.message);
   }
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   revalidatePath(`/staff/${staffId}`);
   redirect(`/staff/${staffId}?saved=credential`);
 }
@@ -74,7 +74,7 @@ export async function updateExpiry(formData: FormData) {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("credential_documents").update({ expiry_date: expiryDate }).eq("id", id);
   if (error) throw new Error(error.message);
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   revalidatePath(`/staff/${staffId}`);
   redirect(`/staff/${staffId}?saved=expiry`);
 }
@@ -84,8 +84,8 @@ export async function deleteStaff(formData: FormData) {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("staff_profiles").delete().eq("id", id);
   if (error) throw new Error(error.message);
-  revalidatePath("/");
-  redirect("/?saved=deleted");
+  revalidatePath("/dashboard");
+  redirect("/dashboard?saved=deleted");
 }
 
 export async function addCpdRecord(formData: FormData) {
@@ -134,7 +134,7 @@ export async function deleteCredential(formData: FormData) {
   const { error } = await supabase.from("credential_documents").delete().eq("id", id);
   if (error) throw new Error(error.message);
   await supabase.storage.from("credential-documents").remove([path]);
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   revalidatePath(`/staff/${staffId}`);
   redirect(`/staff/${staffId}?saved=credential-deleted`);
 }
